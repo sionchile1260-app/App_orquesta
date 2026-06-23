@@ -2,10 +2,11 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>OrquestaSIONsync v7.1 - Panel Profesional</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@0.456.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -16,6 +17,7 @@
         /* Animaciones */
         .sidebar-transition { transition: transform 0.3s ease-in-out; }
         .sheet-zoom { transition: transform 0.2s ease-out; transform-origin: center center; }
+        .pdf-page { width: 100%; height: auto; display: block; margin: 0 auto 8px; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.4); }
         .blackout { background-color: #000 !important; opacity: 0 !important; transition: opacity 0.5s; }
 
         /* ---- Catálogo de cantos ---- */
@@ -357,18 +359,15 @@
             </div>
         </div>
 
-                <div id="musicianSheetContainer" class="w-full h-full flex justify-center items-center overflow-auto p-2 no-scrollbar">
-            <div id="musicianWaitText" class="text-center text-slate-600 max-w-sm p-6">
+                <div id="musicianSheetContainer" class="w-full h-full overflow-auto no-scrollbar">
+            <div id="musicianWaitText" class="w-full h-full flex flex-col items-center justify-center text-center text-slate-600 p-6">
                 <i data-lucide="music-3" class="w-16 h-16 text-slate-800 mx-auto mb-4 animate-bounce"></i>
                 <p class="font-bold text-slate-400 text-lg">Atril Virtual Activo</p>
-                <p class="text-xs text-slate-600 mt-2">Coloca tu dispositivo en tu atril. La partitura de <strong id="musicianWaitLabel" class="text-emerald-400">--</strong> aparecerá tan pronto como el director inicie el himno.</p>
+                <p class="text-xs text-slate-600 mt-2 max-w-sm">Coloca tu dispositivo en tu atril. La partitura de <strong id="musicianWaitLabel" class="text-emerald-400">--</strong> aparecerá tan pronto como el director inicie el himno.</p>
             </div>
 
-            <div id="musicianContentWrapper" class="w-full h-full flex flex-col items-center hidden">
-                <img id="musicianSheetImg" class="sheet-zoom max-w-full max-h-full object-contain hidden" src="" alt="Partitura cargando...">
-                <iframe id="musicianSheetFrame" class="hidden w-full h-full border-0 bg-white rounded-lg" src="" allow="autoplay" title="Partitura"></iframe>
-                <div id="musicianLibreScroll" class="w-full flex flex-col items-center hidden">
-                    </div>
+            <div id="musicianContentWrapper" class="w-full hidden">
+                <div id="musicianPdfInner" class="mx-auto" style="width:100%"></div>
             </div>
         </div>
 
@@ -1227,13 +1226,69 @@ window.addEventListener('load', () => {
         function urlVisorDrive(id) { return `https://drive.google.com/file/d/${id}/preview`; }
         function urlMiniaturaDrive(id, ancho) { return `https://drive.google.com/thumbnail?id=${id}&sz=w${ancho || 1600}`; }
 
+        // Renderiza la partitura a TODO EL ANCHO (varias páginas, scroll vertical), ideal para celular/tablet.
+        let pdfRenderToken = 0;
+        function _initPdfWorker() {
+            if (window.pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc =
+                    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            }
+        }
+        function aplicarZoomMusico() {
+            const inner = document.getElementById('musicianPdfInner');
+            if (inner) inner.style.width = (currentMusicianZoom * 100) + '%';
+        }
+        async function renderPartituraPdf(fuente, esIdDrive) {
+            const inner = document.getElementById('musicianPdfInner');
+            if (!inner) return;
+            const token = ++pdfRenderToken;
+            aplicarZoomMusico();
+            inner.innerHTML = '<div class="text-slate-500 text-sm p-8 text-center">Cargando partitura…</div>';
+
+            // URL directa de imagen (p. ej. una que el director pegó a mano)
+            if (!esIdDrive) {
+                inner.innerHTML = `<img src="${fuente}" style="width:100%;height:auto;display:block" alt="Partitura">`;
+                return;
+            }
+
+            const urlMedia = `https://www.googleapis.com/drive/v3/files/${fuente}?alt=media&key=${DRIVE_API_KEY}`;
+            try {
+                _initPdfWorker();
+                if (!window.pdfjsLib) throw new Error('pdfjs no cargó');
+                const pdf = await pdfjsLib.getDocument({ url: urlMedia }).promise;
+                if (token !== pdfRenderToken) return;
+                inner.innerHTML = '';
+                const anchoBase = inner.clientWidth || 800;
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                for (let n = 1; n <= pdf.numPages; n++) {
+                    const page = await pdf.getPage(n);
+                    if (token !== pdfRenderToken) return;
+                    const vp1 = page.getViewport({ scale: 1 });
+                    const vp = page.getViewport({ scale: (anchoBase / vp1.width) * dpr });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = vp.width;
+                    canvas.height = vp.height;
+                    canvas.className = 'pdf-page';
+                    inner.appendChild(canvas);
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+                    if (token !== pdfRenderToken) return;
+                }
+                const cont = document.getElementById('musicianSheetContainer');
+                if (cont) cont.scrollTop = 0;
+            } catch (e) {
+                if (token !== pdfRenderToken) return;
+                console.warn('No se pudo renderizar el PDF, usando imagen de respaldo:', e);
+                inner.innerHTML =
+                    `<img src="${urlMiniaturaDrive(fuente, 1600)}" style="width:100%;height:auto;display:block" alt="Partitura">` +
+                    `<a href="${urlVisorDrive(fuente)}" target="_blank" rel="noopener" class="block text-center text-indigo-400 text-sm underline py-4">Abrir partitura completa ↗</a>`;
+            }
+        }
+
         function renderMusicoPantalla() {
             if (activeRole !== 'musician') return;
 
             const waitBox = document.getElementById('musicianWaitText');
             const contentWrapper = document.getElementById('musicianContentWrapper');
-            const singleImg = document.getElementById('musicianSheetImg');
-            const sheetFrame = document.getElementById('musicianSheetFrame');
 
             // Himno según el modo: sincronizado con el director o selección libre
             const himno = isMusicianSyncMode
@@ -1242,9 +1297,7 @@ window.addEventListener('load', () => {
 
             // Nada activo todavía
             if (!himno) {
-                singleImg.classList.add('hidden');
-                sheetFrame.classList.add('hidden');
-                sheetFrame.src = '';
+                pdfRenderToken++;
                 contentWrapper.classList.add('hidden');
                 waitBox.classList.remove('hidden');
                 const msg = isMusicianSyncMode
@@ -1263,27 +1316,10 @@ window.addEventListener('load', () => {
             if (url) {
                 waitBox.classList.add('hidden');
                 contentWrapper.classList.remove('hidden');
-
                 const idDrive = extraerIdDrive(url);
-                if (idDrive) {
-                    // Archivo de Google Drive (PDF o imagen): visor de Drive con todas sus páginas
-                    singleImg.classList.add('hidden');
-                    singleImg.src = '';
-                    sheetFrame.src = urlVisorDrive(idDrive);
-                    sheetFrame.classList.remove('hidden');
-                } else {
-                    // URL directa de imagen (p. ej. una que el director pegó a mano)
-                    sheetFrame.classList.add('hidden');
-                    sheetFrame.src = '';
-                    singleImg.src = url;
-                    singleImg.style.transform = `scale(${currentMusicianZoom})`;
-                    singleImg.classList.remove('hidden');
-                }
+                renderPartituraPdf(idDrive || url, !!idDrive);
             } else {
-                singleImg.classList.add('hidden');
-                singleImg.src = '';
-                sheetFrame.classList.add('hidden');
-                sheetFrame.src = '';
+                pdfRenderToken++;
                 contentWrapper.classList.add('hidden');
                 waitBox.classList.remove('hidden');
                 waitBox.innerHTML = `
@@ -1302,14 +1338,14 @@ window.addEventListener('load', () => {
 
         function cambiarZoom(amount) {
             currentMusicianZoom += amount;
-            if (currentMusicianZoom < 0.5) currentMusicianZoom = 0.5;
-            if (currentMusicianZoom > 3) currentMusicianZoom = 3;
-            document.getElementById('musicianSheetImg').style.transform = `scale(${currentMusicianZoom})`;
+            if (currentMusicianZoom < 1) currentMusicianZoom = 1;
+            if (currentMusicianZoom > 4) currentMusicianZoom = 4;
+            aplicarZoomMusico();
         }
 
         function restaurarZoom() {
             currentMusicianZoom = 1;
-            document.getElementById('musicianSheetImg').style.transform = 'scale(1)';
+            aplicarZoomMusico();
         }
 
 
