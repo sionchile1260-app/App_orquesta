@@ -605,6 +605,17 @@ window.addEventListener('load', () => {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') cerrarCatalogo();
         });
+
+        // Re-ajustar la partitura al ancho nuevo al girar el teléfono / cambiar tamaño
+        let _resizeTimer;
+        function _alRedimensionar() {
+            clearTimeout(_resizeTimer);
+            _resizeTimer = setTimeout(() => {
+                if (activeRole === 'musician') renderMusicoPantalla();
+            }, 250);
+        }
+        window.addEventListener('resize', _alRedimensionar);
+        window.addEventListener('orientationchange', _alRedimensionar);
                 function cargarSelectoresDeInstrumentos() {
             const formContainer = document.getElementById('formInstrumentUrls');
             const instrumentSel = document.getElementById('instrumentSelector');
@@ -1228,6 +1239,7 @@ window.addEventListener('load', () => {
 
         // Renderiza la partitura a TODO EL ANCHO (varias páginas, scroll vertical), ideal para celular/tablet.
         let pdfRenderToken = 0;
+        const _pdfCache = {};
         function _initPdfWorker() {
             if (window.pdfjsLib && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
                 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -1255,7 +1267,11 @@ window.addEventListener('load', () => {
             try {
                 _initPdfWorker();
                 if (!window.pdfjsLib) throw new Error('pdfjs no cargó');
-                const pdf = await pdfjsLib.getDocument({ url: urlMedia }).promise;
+                let pdf = _pdfCache[fuente];
+                if (!pdf) {
+                    pdf = await pdfjsLib.getDocument({ url: urlMedia }).promise;
+                    _pdfCache[fuente] = pdf;
+                }
                 if (token !== pdfRenderToken) return;
                 inner.innerHTML = '';
                 const anchoBase = inner.clientWidth || 800;
