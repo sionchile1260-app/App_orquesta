@@ -366,6 +366,7 @@
 
             <div id="musicianContentWrapper" class="w-full h-full flex flex-col items-center hidden">
                 <img id="musicianSheetImg" class="sheet-zoom max-w-full max-h-full object-contain hidden" src="" alt="Partitura cargando...">
+                <iframe id="musicianSheetFrame" class="hidden w-full h-full border-0 bg-white rounded-lg" src="" allow="autoplay" title="Partitura"></iframe>
                 <div id="musicianLibreScroll" class="w-full flex flex-col items-center hidden">
                     </div>
             </div>
@@ -905,7 +906,9 @@ window.addEventListener('load', () => {
             if (activeHimno) {
                 const url = primeraPartituraUrl(activeHimno);
                 if (url) {
-                    monOrq.innerHTML = `<img src="${url}" class="max-h-full object-contain rounded">`;
+                    const idDrive = extraerIdDrive(url);
+                    const src = idDrive ? urlMiniaturaDrive(idDrive, 400) : url;
+                    monOrq.innerHTML = `<img src="${src}" class="max-h-full object-contain rounded">`;
                 } else {
                     monOrq.innerHTML = `<p class="text-[8px] text-slate-600">Sin partituras</p>`;
                 }
@@ -1103,12 +1106,25 @@ window.addEventListener('load', () => {
             });
         }
 
+        // ---- Google Drive: extraer ID y construir URLs de visor/miniatura ----
+        function extraerIdDrive(url) {
+            if (!url) return null;
+            let m = url.match(/\/d\/([-\w]{20,})/);            // .../d/ID  (lh3 y drive)
+            if (m) return m[1];
+            m = url.match(/[?&]id=([-\w]{20,})/);              // ...?id=ID
+            if (m) return m[1];
+            return null;
+        }
+        function urlVisorDrive(id) { return `https://drive.google.com/file/d/${id}/preview`; }
+        function urlMiniaturaDrive(id, ancho) { return `https://drive.google.com/thumbnail?id=${id}&sz=w${ancho || 1600}`; }
+
         function renderMusicoPantalla() {
             if (activeRole !== 'musician') return;
 
             const waitBox = document.getElementById('musicianWaitText');
             const contentWrapper = document.getElementById('musicianContentWrapper');
             const singleImg = document.getElementById('musicianSheetImg');
+            const sheetFrame = document.getElementById('musicianSheetFrame');
 
             // Himno según el modo: sincronizado con el director o selección libre
             const himno = isMusicianSyncMode
@@ -1118,6 +1134,8 @@ window.addEventListener('load', () => {
             // Nada activo todavía
             if (!himno) {
                 singleImg.classList.add('hidden');
+                sheetFrame.classList.add('hidden');
+                sheetFrame.src = '';
                 contentWrapper.classList.add('hidden');
                 waitBox.classList.remove('hidden');
                 const msg = isMusicianSyncMode
@@ -1135,12 +1153,28 @@ window.addEventListener('load', () => {
 
             if (url) {
                 waitBox.classList.add('hidden');
-                singleImg.src = url;
-                singleImg.style.transform = `scale(${currentMusicianZoom})`;
-                singleImg.classList.remove('hidden');
                 contentWrapper.classList.remove('hidden');
+
+                const idDrive = extraerIdDrive(url);
+                if (idDrive) {
+                    // Archivo de Google Drive (PDF o imagen): visor de Drive con todas sus páginas
+                    singleImg.classList.add('hidden');
+                    singleImg.src = '';
+                    sheetFrame.src = urlVisorDrive(idDrive);
+                    sheetFrame.classList.remove('hidden');
+                } else {
+                    // URL directa de imagen (p. ej. una que el director pegó a mano)
+                    sheetFrame.classList.add('hidden');
+                    sheetFrame.src = '';
+                    singleImg.src = url;
+                    singleImg.style.transform = `scale(${currentMusicianZoom})`;
+                    singleImg.classList.remove('hidden');
+                }
             } else {
                 singleImg.classList.add('hidden');
+                singleImg.src = '';
+                sheetFrame.classList.add('hidden');
+                sheetFrame.src = '';
                 contentWrapper.classList.add('hidden');
                 waitBox.classList.remove('hidden');
                 waitBox.innerHTML = `
