@@ -9,6 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <style>
         /* Ocultar barras de scroll visuales pero mantener funcional el desplazamiento */
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -557,7 +558,7 @@
             try { if (window.lucide && window.lucide.createIcons) window.lucide.createIcons(); } catch (e) {}
         }
 
-        function conectarSala() {
+        async function conectarSala() {
             const input = document.getElementById('roomCodeInput');
             let code = input.value.trim().toUpperCase();
             
@@ -574,7 +575,11 @@
                     firebase.initializeApp(defaultFirebaseConfig);
                 }
                 db = firebase.database();
-                
+
+                // Identificación anónima: requerida por las reglas de seguridad.
+                // Cada dispositivo se identifica solo, sin que nadie escriba contraseñas.
+                await firebase.auth().signInAnonymously();
+
                 document.getElementById('roomIndicator').textContent = `Sala: ${roomCode}`;
                 document.getElementById('connBadge').className = "flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider animate-pulse";
                 document.getElementById('connBadge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>Sala Conectada</span>`;
@@ -584,7 +589,12 @@
 
                 escucharServidor();
             } catch (error) {
-                alert("Ocurrió un error al intentar conectarse al servidor: " + error.message);
+                const cod = (error && error.code) ? error.code : '';
+                if (cod.indexOf('auth') !== -1 || cod.indexOf('configuration-not-found') !== -1) {
+                    alert("No se pudo identificar el dispositivo.\n\nEn la consola de Firebase, entra a Authentication → Sign-in method y HABILITA el proveedor \"Anónimo\".\n\nDetalle: " + error.message);
+                } else {
+                    alert("Ocurrió un error al intentar conectarse al servidor: " + error.message);
+                }
                 console.error(error);
             }
         }
