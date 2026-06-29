@@ -350,13 +350,13 @@
             <div class="border-t border-slate-800 pt-4 mt-auto space-y-3">
                 <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Zoom de Partitura</label>
                 <div class="flex items-center justify-center gap-3">
-                    <button onclick="cambiarZoom(-0.1)" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition border border-slate-700">
+                    <button onclick="cambiarZoom(-0.2)" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition border border-slate-700">
                         <i data-lucide="zoom-out" class="w-4 h-4"></i>
                     </button>
                     <button onclick="restaurarZoom()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 rounded-xl transition border border-slate-700">
                         Ajustar
                     </button>
-                    <button onclick="cambiarZoom(0.1)" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition border border-slate-700">
+                    <button onclick="cambiarZoom(0.2)" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition border border-slate-700">
                         <i data-lucide="zoom-in" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -1095,6 +1095,7 @@ window.addEventListener('load', () => {
                 btnOn.className = "bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold py-2 rounded-lg transition border border-slate-700";
                 btnOff.className = "bg-emerald-600 text-white text-xs font-bold py-2 rounded-lg transition shadow-md";
                 manualBox.classList.remove('hidden');
+                currentMusicianZoom = 1;
                 mostrarToast("Modo Libre: desliza para ver todas las partituras");
                 generarListaMusicoManual();
             }
@@ -1267,6 +1268,26 @@ window.addEventListener('load', () => {
             const inner = document.getElementById('musicianPdfInner');
             if (inner) inner.style.width = (currentMusicianZoom * 100) + '%';
         }
+        // Proporción (ancho/alto) de la partitura actual en modo sincronizado.
+        let _relacionPrimeraPagina = 0;
+        // "Ajustar": muestra la PÁGINA COMPLETA según la orientación (alto que entre en pantalla).
+        function ajustarVista() {
+            const cont = document.getElementById('musicianSheetContainer');
+            if (!cont) return;
+            if (!isMusicianSyncMode || !_relacionPrimeraPagina) {
+                currentMusicianZoom = 1;          // modo libre / imagen: ancho completo + scroll
+                aplicarZoomMusico();
+                return;
+            }
+            const w = cont.clientWidth || 1;
+            const h = cont.clientHeight || 1;
+            // zoom para que la ALTURA de la página entre completa en la pantalla
+            let z = (h / w) * _relacionPrimeraPagina;
+            if (z > 1) z = 1;                     // nunca más ancho que la pantalla
+            if (z < 0.15) z = 0.15;
+            currentMusicianZoom = z;
+            aplicarZoomMusico();
+        }
         async function renderPartituraPdf(fuente, esIdDrive) {
             const inner = document.getElementById('musicianPdfInner');
             if (!inner) return;
@@ -1276,14 +1297,14 @@ window.addEventListener('load', () => {
             inner.innerHTML = '';
             const wrap = document.createElement('div');
             inner.appendChild(wrap);
-            await _dibujarPdfEn(wrap, fuente, esIdDrive, token);
+            await _dibujarPdfEn(wrap, fuente, esIdDrive, token, true);
             if (token !== pdfRenderToken) return;
             const cont = document.getElementById('musicianSheetContainer');
             if (cont) cont.scrollTop = 0;
         }
 
         // Dibuja un PDF (o imagen) a todo el ancho dentro de un elemento dado.
-        async function _dibujarPdfEn(target, fuente, esIdDrive, token) {
+        async function _dibujarPdfEn(target, fuente, esIdDrive, token, esPrincipal) {
             const vigente = () => (token === undefined || token === pdfRenderToken);
             target.innerHTML = '<div class="text-slate-500 text-sm p-6 text-center">Cargando partitura…</div>';
 
@@ -1302,12 +1323,19 @@ window.addEventListener('load', () => {
                 }
                 if (!vigente()) return;
                 target.innerHTML = '';
-                const anchoBase = target.clientWidth || 800;
+                // Siempre dibujamos a la resolución del ancho de pantalla completo (nítido),
+                // y el zoom se controla por CSS. Así alejar/acercar no pierde calidad.
+                const cont = document.getElementById('musicianSheetContainer');
+                const anchoBase = (cont && cont.clientWidth) || target.clientWidth || 800;
                 const dpr = Math.min(window.devicePixelRatio || 1, 2);
                 for (let n = 1; n <= pdf.numPages; n++) {
                     const page = await pdf.getPage(n);
                     if (!vigente()) return;
                     const vp1 = page.getViewport({ scale: 1 });
+                    if (n === 1 && esPrincipal) {
+                        _relacionPrimeraPagina = vp1.width / vp1.height;
+                        ajustarVista();
+                    }
                     const vp = page.getViewport({ scale: (anchoBase / vp1.width) * dpr });
                     const canvas = document.createElement('canvas');
                     canvas.width = vp.width;
@@ -1432,14 +1460,13 @@ window.addEventListener('load', () => {
 
         function cambiarZoom(amount) {
             currentMusicianZoom += amount;
-            if (currentMusicianZoom < 1) currentMusicianZoom = 1;
+            if (currentMusicianZoom < 0.15) currentMusicianZoom = 0.15;
             if (currentMusicianZoom > 4) currentMusicianZoom = 4;
             aplicarZoomMusico();
         }
 
         function restaurarZoom() {
-            currentMusicianZoom = 1;
-            aplicarZoomMusico();
+            ajustarVista();
         }
 
 
