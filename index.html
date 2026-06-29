@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>OrquestaSIONsync v7.1 - Panel Profesional</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@0.456.0/dist/umd/lucide.min.js"></script>
@@ -1353,7 +1353,7 @@ window.addEventListener('load', () => {
                 const sec = document.createElement('div');
                 sec.className = 'libre-section';
                 sec.id = 'libre-' + item.id;
-                sec.innerHTML = `<div class="libre-title">${item.titulo}</div><div class="libre-pages"></div>`;
+                sec.innerHTML = `<div class="libre-pages"></div>`;
                 inner.appendChild(sec);
             });
 
