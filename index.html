@@ -19,6 +19,9 @@
         .sidebar-transition { transition: transform 0.3s ease-in-out; }
         .sheet-zoom { transition: transform 0.2s ease-out; transform-origin: center center; }
         .pdf-page { width: 100%; height: auto; display: block; margin: 0 auto 8px; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.4); }
+        .libre-section { margin-bottom: 22px; }
+        .libre-title { position: sticky; top: 0; z-index: 3; background: rgba(2,6,23,.94); backdrop-filter: blur(6px); color: #a5b4fc; font-weight: 800; font-size: 12px; letter-spacing: .03em; padding: 9px 12px; border-bottom: 1px solid #1e293b; }
+        .libre-pages { padding-top: 8px; min-height: 60px; }
         .blackout { background-color: #000 !important; opacity: 0 !important; transition: opacity 0.5s; }
 
         /* ---- Catálogo de cantos ---- */
@@ -338,7 +341,7 @@
                 </div>
 
                 <div id="manualSongsBox" class="hidden flex flex-col flex-grow overflow-hidden">
-                    <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Biblioteca General (Libre)</label>
+                    <label class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Saltar a un canto</label>
                     <div id="musicianManualList" class="bg-slate-950 border border-slate-800 rounded-xl p-2 flex-grow overflow-y-auto space-y-1 no-scrollbar">
                     </div>
                 </div>
@@ -1086,7 +1089,7 @@ window.addEventListener('load', () => {
                 btnOn.className = "bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold py-2 rounded-lg transition border border-slate-700";
                 btnOff.className = "bg-emerald-600 text-white text-xs font-bold py-2 rounded-lg transition shadow-md";
                 manualBox.classList.remove('hidden');
-                mostrarToast("Modo Libre: Explora la lista manualmente");
+                mostrarToast("Modo Libre: desliza para ver todas las partituras");
                 generarListaMusicoManual();
             }
             renderMusicoPantalla();
@@ -1104,8 +1107,9 @@ window.addEventListener('load', () => {
         function generarListaMusicoManual() {
             const container = document.getElementById('musicianManualList');
             container.innerHTML = '';
-            
-            const ids = Object.keys(window.state.songs);
+
+            const ids = Object.keys(window.state.songs)
+                .sort((a, b) => (window.state.songs[a].titulo || '').localeCompare(window.state.songs[b].titulo || '', 'es'));
             if (ids.length === 0) {
                 container.innerHTML = `<p class="text-[9px] text-slate-600 text-center py-2">Sin himnos cargados</p>`;
                 return;
@@ -1114,19 +1118,16 @@ window.addEventListener('load', () => {
             ids.forEach(id => {
                 const himno = window.state.songs[id];
                 const btn = document.createElement('button');
-                
-                if (!isMusicianSyncMode && manualSelectedSongId === id) {
-                    btn.className = "w-full text-left text-[10px] p-1.5 bg-emerald-950/40 border border-emerald-900/30 rounded text-emerald-400 font-bold transition truncate";
-                } else {
-                    btn.className = "w-full text-left text-[10px] p-1.5 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition truncate";
-                }
-                
+                btn.className = "w-full text-left text-[10px] p-1.5 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition truncate";
                 btn.textContent = himno.titulo;
                 btn.onclick = () => {
-                    manualSelectedSongId = id;
-                    generarListaMusicoManual(); 
-                    renderMusicoPantalla();
-                    mostrarToast(`Mostrando: ${himno.titulo}`);
+                    toggleMusicianMenu();
+                    const sec = document.getElementById('libre-' + id);
+                    if (sec) {
+                        sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    } else {
+                        mostrarToast(`${himno.titulo}: sin partitura para ${selectedInstrument}`);
+                    }
                 };
                 container.appendChild(btn);
             });
@@ -1263,16 +1264,27 @@ window.addEventListener('load', () => {
         async function renderPartituraPdf(fuente, esIdDrive) {
             const inner = document.getElementById('musicianPdfInner');
             if (!inner) return;
+            if (_libreObserver) { _libreObserver.disconnect(); _libreObserver = null; }
             const token = ++pdfRenderToken;
             aplicarZoomMusico();
-            inner.innerHTML = '<div class="text-slate-500 text-sm p-8 text-center">Cargando partitura…</div>';
+            inner.innerHTML = '';
+            const wrap = document.createElement('div');
+            inner.appendChild(wrap);
+            await _dibujarPdfEn(wrap, fuente, esIdDrive, token);
+            if (token !== pdfRenderToken) return;
+            const cont = document.getElementById('musicianSheetContainer');
+            if (cont) cont.scrollTop = 0;
+        }
 
-            // URL directa de imagen (p. ej. una que el director pegó a mano)
+        // Dibuja un PDF (o imagen) a todo el ancho dentro de un elemento dado.
+        async function _dibujarPdfEn(target, fuente, esIdDrive, token) {
+            const vigente = () => (token === undefined || token === pdfRenderToken);
+            target.innerHTML = '<div class="text-slate-500 text-sm p-6 text-center">Cargando partitura…</div>';
+
             if (!esIdDrive) {
-                inner.innerHTML = `<img src="${fuente}" style="width:100%;height:auto;display:block" alt="Partitura">`;
+                target.innerHTML = `<img src="${fuente}" style="width:100%;height:auto;display:block" alt="Partitura">`;
                 return;
             }
-
             const urlMedia = `https://www.googleapis.com/drive/v3/files/${fuente}?alt=media&key=${DRIVE_API_KEY}`;
             try {
                 _initPdfWorker();
@@ -1282,32 +1294,78 @@ window.addEventListener('load', () => {
                     pdf = await pdfjsLib.getDocument({ url: urlMedia }).promise;
                     _pdfCache[fuente] = pdf;
                 }
-                if (token !== pdfRenderToken) return;
-                inner.innerHTML = '';
-                const anchoBase = inner.clientWidth || 800;
+                if (!vigente()) return;
+                target.innerHTML = '';
+                const anchoBase = target.clientWidth || 800;
                 const dpr = Math.min(window.devicePixelRatio || 1, 2);
                 for (let n = 1; n <= pdf.numPages; n++) {
                     const page = await pdf.getPage(n);
-                    if (token !== pdfRenderToken) return;
+                    if (!vigente()) return;
                     const vp1 = page.getViewport({ scale: 1 });
                     const vp = page.getViewport({ scale: (anchoBase / vp1.width) * dpr });
                     const canvas = document.createElement('canvas');
                     canvas.width = vp.width;
                     canvas.height = vp.height;
                     canvas.className = 'pdf-page';
-                    inner.appendChild(canvas);
+                    target.appendChild(canvas);
                     await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-                    if (token !== pdfRenderToken) return;
+                    if (!vigente()) return;
                 }
-                const cont = document.getElementById('musicianSheetContainer');
-                if (cont) cont.scrollTop = 0;
             } catch (e) {
-                if (token !== pdfRenderToken) return;
+                if (!vigente()) return;
                 console.warn('No se pudo renderizar el PDF, usando imagen de respaldo:', e);
-                inner.innerHTML =
+                target.innerHTML =
                     `<img src="${urlMiniaturaDrive(fuente, 1600)}" style="width:100%;height:auto;display:block" alt="Partitura">` +
-                    `<a href="${urlVisorDrive(fuente)}" target="_blank" rel="noopener" class="block text-center text-indigo-400 text-sm underline py-4">Abrir partitura completa ↗</a>`;
+                    `<a href="${urlVisorDrive(fuente)}" target="_blank" rel="noopener" class="block text-center text-indigo-400 text-sm underline py-3">Abrir partitura completa ↗</a>`;
             }
+        }
+
+        // MODO LIBRE: todas las partituras del repertorio en un scroll continuo (carga perezosa).
+        let _libreObserver = null;
+        function renderMusicoLibreScroll() {
+            const inner = document.getElementById('musicianPdfInner');
+            if (!inner) return;
+            pdfRenderToken++; // cancela cualquier render del modo sincronizado
+            if (_libreObserver) { _libreObserver.disconnect(); _libreObserver = null; }
+            aplicarZoomMusico();
+            inner.innerHTML = '';
+
+            const conPartitura = [];
+            Object.keys(window.state.songs).forEach(id => {
+                const h = window.state.songs[id];
+                const url = resolverPartitura(h, selectedInstrument);
+                if (url) conPartitura.push({ id, titulo: h.titulo, url });
+            });
+            conPartitura.sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
+
+            if (conPartitura.length === 0) {
+                inner.innerHTML = `<div class="text-slate-500 text-sm p-8 text-center">No hay partituras para <strong class="text-emerald-400">${selectedInstrument}</strong> en el repertorio actual.</div>`;
+                return;
+            }
+
+            conPartitura.forEach(item => {
+                const sec = document.createElement('div');
+                sec.className = 'libre-section';
+                sec.id = 'libre-' + item.id;
+                sec.innerHTML = `<div class="libre-title">${item.titulo}</div><div class="libre-pages"></div>`;
+                inner.appendChild(sec);
+            });
+
+            const cont = document.getElementById('musicianSheetContainer');
+            _libreObserver = new IntersectionObserver((entries, obs) => {
+                entries.forEach(en => {
+                    if (!en.isIntersecting) return;
+                    obs.unobserve(en.target);
+                    const item = conPartitura.find(c => 'libre-' + c.id === en.target.id);
+                    if (!item) return;
+                    const destino = en.target.querySelector('.libre-pages');
+                    const idDrive = extraerIdDrive(item.url);
+                    _dibujarPdfEn(destino, idDrive || item.url, !!idDrive);
+                });
+            }, { root: cont, rootMargin: '800px 0px' });
+
+            inner.querySelectorAll('.libre-section').forEach(s => _libreObserver.observe(s));
+            if (cont) cont.scrollTop = 0;
         }
 
         function renderMusicoPantalla() {
@@ -1316,23 +1374,27 @@ window.addEventListener('load', () => {
             const waitBox = document.getElementById('musicianWaitText');
             const contentWrapper = document.getElementById('musicianContentWrapper');
 
-            // Himno según el modo: sincronizado con el director o selección libre
-            const himno = isMusicianSyncMode
-                ? window.state.songs[window.state.liveState.songId]
-                : window.state.songs[manualSelectedSongId];
+            // ===== MODO LIBRE: todas las partituras del repertorio en scroll continuo =====
+            if (!isMusicianSyncMode) {
+                waitBox.classList.add('hidden');
+                contentWrapper.classList.remove('hidden');
+                renderMusicoLibreScroll();
+                return;
+            }
+
+            // ===== MODO SINCRONIZADO: una sola partitura, la que marca el director =====
+            if (_libreObserver) { _libreObserver.disconnect(); _libreObserver = null; }
+            const himno = window.state.songs[window.state.liveState.songId];
 
             // Nada activo todavía
             if (!himno) {
                 pdfRenderToken++;
                 contentWrapper.classList.add('hidden');
                 waitBox.classList.remove('hidden');
-                const msg = isMusicianSyncMode
-                    ? `La partitura de <strong class="text-emerald-400">${selectedInstrument}</strong> aparecerá apenas el director inicie un himno.`
-                    : `Elige un canto en “Biblioteca General” desde el menú para verlo en tu atril.`;
                 waitBox.innerHTML = `
                     <i data-lucide="music-3" class="w-16 h-16 text-slate-800 mx-auto mb-4"></i>
                     <p class="font-bold text-slate-400 text-lg">Atril listo</p>
-                    <p class="text-xs text-slate-600 mt-2 max-w-xs mx-auto">${msg}</p>`;
+                    <p class="text-xs text-slate-600 mt-2 max-w-xs mx-auto">La partitura de <strong class="text-emerald-400">${selectedInstrument}</strong> aparecerá apenas el director inicie un himno.</p>`;
                 refrescarIconos();
                 return;
             }
