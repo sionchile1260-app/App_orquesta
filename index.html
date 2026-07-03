@@ -281,6 +281,11 @@
                             <input type="text" id="formSongTitle" placeholder="Ej. Cuán Grande Es Él" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition">
                         </div>
                         <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subtítulo (opcional)</label>
+                            <input type="text" id="formSongSubtitle" placeholder="Ej. N.º 245, coro, autor, tono…" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition">
+                            <p class="text-[9px] text-slate-500 mt-1">Se guarda con el himno y también sirve para buscarlo en la biblioteca.</p>
+                        </div>
+                        <div>
                             <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Letras (Separa estrofas dejando un renglón vacío)</label>
                             <textarea id="formSongLyrics" rows="12" placeholder="Escribe o pega la letra aquí..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition no-scrollbar"></textarea>
                         </div>
@@ -856,7 +861,11 @@ window.addEventListener('load', () => {
     container.innerHTML = '';
 
     const ids = Object.keys(window.state.songs);
-    const filtrados = ids.filter(id => window.state.songs[id].titulo.toLowerCase().includes(searchVal));
+    const filtrados = ids.filter(id => {
+        const s = window.state.songs[id];
+        const texto = ((s.titulo || '') + ' ' + (s.subtitulo || '')).toLowerCase();
+        return texto.includes(searchVal);
+    });
 
     filtrados.forEach(id => {
         const himno = window.state.songs[id];
@@ -873,6 +882,7 @@ window.addEventListener('load', () => {
                 <h5 class="font-bold text-[11px] ${sinLetra ? 'text-amber-500' : 'text-slate-300'} truncate">
                     ${sinLetra ? '⚠️ ' : ''}${himno.titulo}
                 </h5>
+                ${himno.subtitulo ? `<p class="text-[9px] text-slate-500 truncate">${himno.subtitulo}</p>` : ''}
             </div>
             <div class="flex gap-1">
                 <button onclick="toggleDomingo('${id}')" class="p-1 rounded-md border text-[9px] font-bold ${estaEnDomingo ? 'bg-emerald-950/40 border-emerald-900 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-white'}">
@@ -993,6 +1003,7 @@ window.addEventListener('load', () => {
             document.getElementById('formActionTitle').textContent = "Ingresar Nuevo Himno";
             document.getElementById('formSongId').value = '';
             document.getElementById('formSongTitle').value = '';
+            document.getElementById('formSongSubtitle').value = '';
             document.getElementById('formSongLyrics').value = '';
             document.getElementById('btnDeleteFormSong').classList.add('hidden');
 
@@ -1015,6 +1026,7 @@ window.addEventListener('load', () => {
             document.getElementById('formActionTitle').textContent = "Editar Himno";
             document.getElementById('formSongId').value = himno.id;
             document.getElementById('formSongTitle').value = himno.titulo;
+            document.getElementById('formSongSubtitle').value = himno.subtitulo || '';
             document.getElementById('formSongLyrics').value = himno.letra;
             document.getElementById('btnDeleteFormSong').classList.remove('hidden');
 
@@ -1034,6 +1046,7 @@ window.addEventListener('load', () => {
         function guardarHimno() {
             const id = document.getElementById('formSongId').value.trim() || 'himno_' + Date.now();
             const titulo = document.getElementById('formSongTitle').value.trim();
+            const subtitulo = document.getElementById('formSongSubtitle').value.trim();
             const letra = document.getElementById('formSongLyrics').value.trim();
 
             if (!titulo || !letra) {
@@ -1047,8 +1060,9 @@ window.addEventListener('load', () => {
                 if (val) urlsInstrumentos[inst] = val;
             });
 
-            window.state.songs[id] = { id, titulo, letra, urlsInstrumentos };
-            
+            const existente = window.state.songs[id] || {};
+            window.state.songs[id] = { ...existente, id, titulo, subtitulo, letra, urlsInstrumentos };
+
             mostrarToast("Sincronizando Himno en la nube...");
             guardarEstadoEnServidor();
             cerrarFormularioIngreso();
