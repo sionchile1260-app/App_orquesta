@@ -1129,10 +1129,9 @@ window.addEventListener('load', () => {
             const container = document.getElementById('musicianManualList');
             container.innerHTML = '';
 
-            const ids = Object.keys(window.state.songs)
-                .sort((a, b) => (window.state.songs[a].titulo || '').localeCompare(window.state.songs[b].titulo || '', 'es'));
+            const ids = (window.state.activeSet || []).filter(id => window.state.songs[id]);
             if (ids.length === 0) {
-                container.innerHTML = `<p class="text-[9px] text-slate-600 text-center py-2">Sin himnos cargados</p>`;
+                container.innerHTML = `<p class="text-[9px] text-slate-600 text-center py-2">Sin himnos en el repertorio</p>`;
                 return;
             }
 
@@ -1379,15 +1378,15 @@ window.addEventListener('load', () => {
             inner.innerHTML = '';
 
             const conPartitura = [];
-            Object.keys(window.state.songs).forEach(id => {
+            (window.state.activeSet || []).forEach(id => {
                 const h = window.state.songs[id];
+                if (!h) return;
                 const url = resolverPartitura(h, selectedInstrument);
                 if (url) conPartitura.push({ id, titulo: h.titulo, url });
             });
-            conPartitura.sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
 
             if (conPartitura.length === 0) {
-                inner.innerHTML = `<div class="text-slate-500 text-sm p-8 text-center">No hay partituras para <strong class="text-emerald-400">${selectedInstrument}</strong> en el repertorio actual.</div>`;
+                inner.innerHTML = `<div class="text-slate-500 text-sm p-8 text-center">No hay partituras para <strong class="text-emerald-400">${selectedInstrument}</strong> en el repertorio de este domingo.</div>`;
                 return;
             }
 
