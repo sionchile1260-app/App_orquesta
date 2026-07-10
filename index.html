@@ -200,7 +200,7 @@
                 <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Todos tus Himnos Guardados</label>
                 <div class="relative mb-3">
                     <i data-lucide="search" class="absolute left-3 top-2.5 text-slate-600 w-3.5 h-3.5"></i>
-                    <input type="text" id="librarySearchInput" oninput="buscarEnBiblioteca()" placeholder="Buscar himno..." class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                    <input type="text" id="librarySearchInput" oninput="buscarEnBiblioteca()" placeholder="Buscar por tono, velocidad o título..." class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
                 </div>
                 <div id="libraryList" class="flex-grow overflow-y-auto space-y-1.5 pr-1 no-scrollbar">
                     </div>
@@ -223,22 +223,14 @@
                 </div>
 
                 <div class="p-4 border-t border-slate-800 bg-slate-900/20 space-y-3 mt-auto">
-                    <h4 class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
-                        Monitor de Pantallas en Vivo
-                    </h4>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="bg-black border border-slate-800 rounded-xl p-2 h-20 flex flex-col justify-between relative overflow-hidden">
-                            <span class="absolute top-1 left-1 bg-emerald-950/80 text-emerald-400 text-[7px] font-black px-1.5 py-0.5 rounded border border-emerald-500/20">ORQUESTA (MUESTRA)</span>
-                            <div id="monitorOrquesta" class="w-full h-full flex items-center justify-center pt-2">
-                                <i data-lucide="music" class="text-slate-800 w-6 h-6"></i>
-                            </div>
-                        </div>
-                        <div class="bg-black border border-slate-800 rounded-xl p-2 h-20 flex flex-col justify-between relative overflow-hidden">
-                            <span class="absolute top-1 left-1 bg-sky-950/80 text-sky-400 text-[7px] font-black px-1.5 py-0.5 rounded border border-sky-500/20">PROYECTOR</span>
-                            <div id="monitorProyector" class="w-full h-full flex items-center justify-center text-center text-[7px] text-slate-400 font-bold px-1 pt-2 line-clamp-3 leading-tight">
-                                Sin señal
-                            </div>
+                    <div id="estadoTransmision" class="flex items-center gap-2 px-3 py-2 rounded-xl border bg-red-950/30 border-red-900/40 text-red-400 text-[10px] font-black uppercase tracking-wider">
+                        <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                        <span id="estadoTransmisionTexto">Sin transmisión</span>
+                    </div>
+                    <div class="bg-black border border-slate-800 rounded-xl p-3">
+                        <p class="text-[9px] font-black text-sky-400 uppercase tracking-widest mb-1.5">Estrofa en pantalla</p>
+                        <div id="monitorProyector" class="text-slate-100 text-base font-bold leading-snug whitespace-pre-wrap max-h-44 overflow-y-auto no-scrollbar">
+                            Sin señal
                         </div>
                     </div>
                 </div>
@@ -280,10 +272,15 @@
                             <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Título del Himno</label>
                             <input type="text" id="formSongTitle" placeholder="Ej. Cuán Grande Es Él" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition">
                         </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subtítulo (opcional)</label>
-                            <input type="text" id="formSongSubtitle" placeholder="Ej. N.º 245, coro, autor, tono…" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition">
-                            <p class="text-[9px] text-slate-500 mt-1">Se guarda con el himno y también sirve para buscarlo en la biblioteca.</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tonalidad</label>
+                                <input type="text" id="formSongTono" placeholder="Ej. Fa, Sol m, Do" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Velocidad</label>
+                                <input type="text" id="formSongVelocidad" placeholder="Ej. 72, lenta, rápida" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition">
+                            </div>
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Letras (Separa estrofas dejando un renglón vacío)</label>
@@ -379,6 +376,13 @@
                 <div id="musicianPdfInner" class="mx-auto" style="width:100%"></div>
             </div>
         </div>
+
+        <button onclick="cambiarZoom(-0.2)" class="absolute bottom-5 left-4 z-40 p-3.5 bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-white rounded-full shadow-xl backdrop-blur-sm transition active:scale-95">
+            <i data-lucide="zoom-out" class="w-6 h-6"></i>
+        </button>
+        <button onclick="cambiarZoom(0.2)" class="absolute bottom-5 right-4 z-40 p-3.5 bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-white rounded-full shadow-xl backdrop-blur-sm transition active:scale-95">
+            <i data-lucide="zoom-in" class="w-6 h-6"></i>
+        </button>
 
     </div>
 
@@ -555,7 +559,7 @@
         let isMusicianSyncMode = true;
         let manualSelectedSongId = null;
         let currentMusicianZoom = 1;
-        let currentProjectorFontSize = 27;
+        let currentProjectorFontSize = 40;
 
         window.state = {
             songs: {},
@@ -861,11 +865,20 @@ window.addEventListener('load', () => {
     container.innerHTML = '';
 
     const ids = Object.keys(window.state.songs);
-    const filtrados = ids.filter(id => {
-        const s = window.state.songs[id];
-        const texto = ((s.titulo || '') + ' ' + (s.subtitulo || '')).toLowerCase();
-        return texto.includes(searchVal);
-    });
+    // Coincidencia con prioridad: 1) tonalidad, 2) velocidad, 3) título
+    const coincidencia = (s) => {
+        if (!searchVal) return 3;
+        if ((s.tonalidad || '').toLowerCase().includes(searchVal)) return 1;
+        if ((s.velocidad || '').toLowerCase().includes(searchVal)) return 2;
+        if ((s.titulo || '').toLowerCase().includes(searchVal)) return 3;
+        return 0;
+    };
+    const filtrados = ids
+        .map(id => ({ id, prio: coincidencia(window.state.songs[id]) }))
+        .filter(x => x.prio > 0)
+        .sort((a, b) => a.prio - b.prio ||
+            (window.state.songs[a.id].titulo || '').localeCompare(window.state.songs[b.id].titulo || '', 'es'))
+        .map(x => x.id);
 
     filtrados.forEach(id => {
         const himno = window.state.songs[id];
@@ -873,6 +886,9 @@ window.addEventListener('load', () => {
         
         // Nueva lógica: verificar si tiene letra
         const sinLetra = !himno.letra || himno.letra.trim() === "";
+        const chips = [];
+        if (himno.tonalidad) chips.push(`♪ ${himno.tonalidad}`);
+        if (himno.velocidad) chips.push(`⏱ ${himno.velocidad}`);
 
         const item = document.createElement('div');
         item.className = "p-2 rounded-lg bg-slate-950 border border-slate-800 flex justify-between items-center";
@@ -882,7 +898,7 @@ window.addEventListener('load', () => {
                 <h5 class="font-bold text-[11px] ${sinLetra ? 'text-amber-500' : 'text-slate-300'} truncate">
                     ${sinLetra ? '⚠️ ' : ''}${himno.titulo}
                 </h5>
-                ${himno.subtitulo ? `<p class="text-[9px] text-slate-500 truncate">${himno.subtitulo}</p>` : ''}
+                ${chips.length ? `<p class="text-[9px] text-slate-500 truncate">${chips.join('  ·  ')}</p>` : ''}
             </div>
             <div class="flex gap-1">
                 <button onclick="toggleDomingo('${id}')" class="p-1 rounded-md border text-[9px] font-bold ${estaEnDomingo ? 'bg-emerald-950/40 border-emerald-900 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-white'}">
@@ -942,26 +958,31 @@ window.addEventListener('load', () => {
         }
 
         function renderMonitoresDirector() {
-            const monOrq = document.getElementById('monitorOrquesta');
+            const estado = document.getElementById('estadoTransmision');
+            const estadoTxt = document.getElementById('estadoTransmisionTexto');
             const monProy = document.getElementById('monitorProyector');
 
             const activeId = window.state.liveState.songId;
             const activeHimno = window.state.songs[activeId];
 
             if (activeHimno) {
-                const url = primeraPartituraUrl(activeHimno);
-                if (url) {
-                    const idDrive = extraerIdDrive(url);
-                    const src = idDrive ? urlMiniaturaDrive(idDrive, 400) : url;
-                    monOrq.innerHTML = `<img src="${src}" class="max-h-full object-contain rounded">`;
+                const tienePartitura = !!primeraPartituraUrl(activeHimno);
+                if (tienePartitura) {
+                    estado.className = "flex items-center gap-2 px-3 py-2 rounded-xl border bg-emerald-950/30 border-emerald-900/40 text-emerald-400 text-[10px] font-black uppercase tracking-wider";
+                    estado.querySelector('span').className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+                    estadoTxt.textContent = "Transmitiendo partitura";
                 } else {
-                    monOrq.innerHTML = `<p class="text-[8px] text-slate-600">Sin partituras</p>`;
+                    estado.className = "flex items-center gap-2 px-3 py-2 rounded-xl border bg-red-950/30 border-red-900/40 text-red-400 text-[10px] font-black uppercase tracking-wider";
+                    estado.querySelector('span').className = "w-2 h-2 rounded-full bg-red-500";
+                    estadoTxt.textContent = "Sin partitura para transmitir";
                 }
 
-                const estrofas = activeHimno.letra.split(/\n\s*\n/).map(e => e.trim());
+                const estrofas = (activeHimno.letra || '').split(/\n\s*\n/).map(e => e.trim());
                 monProy.textContent = estrofas[window.state.liveState.verseIndex] || '---';
             } else {
-                monOrq.innerHTML = `<i data-lucide="music" class="text-slate-800 w-6 h-6"></i>`;
+                estado.className = "flex items-center gap-2 px-3 py-2 rounded-xl border bg-red-950/30 border-red-900/40 text-red-400 text-[10px] font-black uppercase tracking-wider";
+                estado.querySelector('span').className = "w-2 h-2 rounded-full bg-red-500";
+                estadoTxt.textContent = "Sin transmisión";
                 monProy.textContent = 'Sin señal';
             }
         }
@@ -1003,7 +1024,8 @@ window.addEventListener('load', () => {
             document.getElementById('formActionTitle').textContent = "Ingresar Nuevo Himno";
             document.getElementById('formSongId').value = '';
             document.getElementById('formSongTitle').value = '';
-            document.getElementById('formSongSubtitle').value = '';
+            document.getElementById('formSongTono').value = '';
+            document.getElementById('formSongVelocidad').value = '';
             document.getElementById('formSongLyrics').value = '';
             document.getElementById('btnDeleteFormSong').classList.add('hidden');
 
@@ -1026,7 +1048,8 @@ window.addEventListener('load', () => {
             document.getElementById('formActionTitle').textContent = "Editar Himno";
             document.getElementById('formSongId').value = himno.id;
             document.getElementById('formSongTitle').value = himno.titulo;
-            document.getElementById('formSongSubtitle').value = himno.subtitulo || '';
+            document.getElementById('formSongTono').value = himno.tonalidad || '';
+            document.getElementById('formSongVelocidad').value = himno.velocidad || '';
             document.getElementById('formSongLyrics').value = himno.letra;
             document.getElementById('btnDeleteFormSong').classList.remove('hidden');
 
@@ -1046,7 +1069,9 @@ window.addEventListener('load', () => {
         function guardarHimno() {
             const id = document.getElementById('formSongId').value.trim() || 'himno_' + Date.now();
             const titulo = document.getElementById('formSongTitle').value.trim();
-            const subtitulo = document.getElementById('formSongSubtitle').value.trim();
+            const subtitulo = titulo; // el subtítulo copia el título por defecto
+            const tonalidad = document.getElementById('formSongTono').value.trim();
+            const velocidad = document.getElementById('formSongVelocidad').value.trim();
             const letra = document.getElementById('formSongLyrics').value.trim();
 
             if (!titulo || !letra) {
@@ -1061,7 +1086,7 @@ window.addEventListener('load', () => {
             });
 
             const existente = window.state.songs[id] || {};
-            window.state.songs[id] = { ...existente, id, titulo, subtitulo, letra, urlsInstrumentos };
+            window.state.songs[id] = { ...existente, id, titulo, subtitulo, tonalidad, velocidad, letra, urlsInstrumentos };
 
             mostrarToast("Sincronizando Himno en la nube...");
             guardarEstadoEnServidor();
@@ -1104,6 +1129,7 @@ window.addEventListener('load', () => {
                 btnOff.className = "bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold py-2 rounded-lg transition border border-slate-700";
                 manualBox.classList.add('hidden');
                 manualSelectedSongId = null; 
+                document.getElementById('musicianMenu').classList.add('translate-x-full'); // cierra el menú
                 mostrarToast("Sincronizado: Sigues al director");
             } else {
                 btnOn.className = "bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold py-2 rounded-lg transition border border-slate-700";
@@ -1341,13 +1367,17 @@ window.addEventListener('load', () => {
                 const cont = document.getElementById('musicianSheetContainer');
                 const anchoBase = (cont && cont.clientWidth) || target.clientWidth || 800;
                 const dpr = Math.min(window.devicePixelRatio || 1, 2);
-                for (let n = 1; n <= pdf.numPages; n++) {
+                // En modo sincronizado solo mostramos la primera página (la partitura);
+                // páginas siguientes (p. ej. letra) no se dibujan. En modo libre, todas.
+                const totalPaginas = esPrincipal ? 1 : pdf.numPages;
+                for (let n = 1; n <= totalPaginas; n++) {
                     const page = await pdf.getPage(n);
                     if (!vigente()) return;
                     const vp1 = page.getViewport({ scale: 1 });
                     if (n === 1 && esPrincipal) {
                         _relacionPrimeraPagina = vp1.width / vp1.height;
-                        ajustarVista();
+                        currentMusicianZoom = 1;   // llena el ancho de la pantalla por defecto
+                        aplicarZoomMusico();
                     }
                     const vp = page.getViewport({ scale: (anchoBase / vp1.width) * dpr });
                     const canvas = document.createElement('canvas');
@@ -1369,9 +1399,17 @@ window.addEventListener('load', () => {
 
         // MODO LIBRE: todas las partituras del repertorio en un scroll continuo (carga perezosa).
         let _libreObserver = null;
+        let _libreKey = '';
         function renderMusicoLibreScroll() {
             const inner = document.getElementById('musicianPdfInner');
             if (!inner) return;
+
+            // Si el repertorio y el instrumento no cambiaron, NO re-dibujar:
+            // así los cambios de canto del director no mueven al músico libre.
+            const claveActual = (window.state.activeSet || []).join(',') + '|' + selectedInstrument;
+            if (claveActual === _libreKey && inner.querySelector('.libre-section')) return;
+            _libreKey = claveActual;
+
             pdfRenderToken++; // cancela cualquier render del modo sincronizado
             if (_libreObserver) { _libreObserver.disconnect(); _libreObserver = null; }
             aplicarZoomMusico();
