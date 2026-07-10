@@ -198,9 +198,17 @@
 
             <div class="flex-grow flex flex-col overflow-hidden">
                 <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Todos tus Himnos Guardados</label>
-                <div class="relative mb-3">
+                <div class="relative mb-2">
                     <i data-lucide="search" class="absolute left-3 top-2.5 text-slate-600 w-3.5 h-3.5"></i>
-                    <input type="text" id="librarySearchInput" oninput="buscarEnBiblioteca()" placeholder="Buscar por tono, velocidad o título..." class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                    <input type="text" id="librarySearchInput" oninput="buscarEnBiblioteca()" placeholder="Buscar por título..." class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <select id="libraryFilterTono" onchange="buscarEnBiblioteca()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 focus:outline-none focus:border-indigo-500">
+                        <option value="">♪ Tonalidad: todas</option>
+                    </select>
+                    <select id="libraryFilterVelocidad" onchange="buscarEnBiblioteca()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] text-slate-300 focus:outline-none focus:border-indigo-500">
+                        <option value="">⏱ Velocidad: todas</option>
+                    </select>
                 </div>
                 <div id="libraryList" class="flex-grow overflow-y-auto space-y-1.5 pr-1 no-scrollbar">
                     </div>
@@ -862,23 +870,41 @@ window.addEventListener('load', () => {
         function renderDirectorBiblioteca() {
     const container = document.getElementById('libraryList');
     const searchVal = document.getElementById('librarySearchInput').value.toLowerCase();
+    const selTono = document.getElementById('libraryFilterTono');
+    const selVel = document.getElementById('libraryFilterVelocidad');
     container.innerHTML = '';
 
     const ids = Object.keys(window.state.songs);
-    // Coincidencia con prioridad: 1) tonalidad, 2) velocidad, 3) título
-    const coincidencia = (s) => {
-        if (!searchVal) return 3;
-        if ((s.tonalidad || '').toLowerCase().includes(searchVal)) return 1;
-        if ((s.velocidad || '').toLowerCase().includes(searchVal)) return 2;
-        if ((s.titulo || '').toLowerCase().includes(searchVal)) return 3;
-        return 0;
+
+    // Rellenar las pestañas con los valores que existen en los himnos (manteniendo la selección)
+    const norm = v => (v || '').trim();
+    const tonos = [...new Set(ids.map(id => norm(window.state.songs[id].tonalidad)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+    const vels  = [...new Set(ids.map(id => norm(window.state.songs[id].velocidad)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+    const rellenar = (sel, valores, etiqueta) => {
+        const actual = sel.value;
+        sel.innerHTML = `<option value="">${etiqueta}</option>` +
+            valores.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+        if (valores.includes(actual)) sel.value = actual;
     };
-    const filtrados = ids
-        .map(id => ({ id, prio: coincidencia(window.state.songs[id]) }))
-        .filter(x => x.prio > 0)
-        .sort((a, b) => a.prio - b.prio ||
-            (window.state.songs[a.id].titulo || '').localeCompare(window.state.songs[b.id].titulo || '', 'es'))
-        .map(x => x.id);
+    rellenar(selTono, tonos, '♪ Tonalidad: todas');
+    rellenar(selVel, vels, '⏱ Velocidad: todas');
+
+    const fTono = selTono.value;
+    const fVel = selVel.value;
+
+    const filtrados = ids.filter(id => {
+        const s = window.state.songs[id];
+        if (fTono && norm(s.tonalidad) !== fTono) return false;
+        if (fVel && norm(s.velocidad) !== fVel) return false;
+        if (searchVal && !(s.titulo || '').toLowerCase().includes(searchVal)) return false;
+        return true;
+    }).sort((a, b) =>
+        (window.state.songs[a].titulo || '').localeCompare(window.state.songs[b].titulo || '', 'es'));
+
+    if (filtrados.length === 0) {
+        container.innerHTML = `<p class="text-[10px] text-slate-600 text-center py-4">Ningún himno coincide con los filtros.</p>`;
+        return;
+    }
 
     filtrados.forEach(id => {
         const himno = window.state.songs[id];
